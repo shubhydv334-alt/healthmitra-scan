@@ -105,7 +105,7 @@ healthmitra-scan/
 8. **Rural Mode** → Add patient → Show multi-patient management
 9. **Offline Mode** → Show live CPU/NPU gauges → All models running locally
 
-## 🏆 Hackathon Highlights
+## 🏆  Highlights
 
 - ✅ **100% Offline** – No internet required
 - ✅ **Real LLM** – Ollama integration for genuine AI responses
@@ -116,4 +116,4 @@ healthmitra-scan/
 
 ## 📜 License
 
-MIT License – Built for amd Hackathon 2025
+MIT License – Built for amd  2025
