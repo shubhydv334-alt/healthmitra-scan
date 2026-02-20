@@ -1,6 +1,6 @@
 # 🏥 HealthMitra Scan
 
-> National-level hackathon winning offline multilingual AI health assistant powered by AMD Ryzen AI
+> A offline multilingual AI health assistant powered by AMD Ryzen AI
 
 ![Status](https://img.shields.io/badge/Status-Working_Prototype-brightgreen)
 ![AI](https://img.shields.io/badge/AI-Ollama_LLM-blue)
