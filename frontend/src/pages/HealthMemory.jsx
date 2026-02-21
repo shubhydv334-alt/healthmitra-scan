@@ -1,23 +1,30 @@
 import { useState, useEffect } from 'react'
 import { Clock, FileText, Camera, Activity, AlertTriangle, TrendingUp } from 'lucide-react'
 
-const sampleTimeline = [
-    { id: 1, event_type: 'report', title: 'Blood Test Report', description: 'Complete CBC + Lipid Profile', risk_score: 78, created_at: '2025-02-15T10:30:00' },
-    { id: 2, event_type: 'scan', title: 'Lunch Meal Scanned', description: 'Dal Rice + Roti – 470 kcal total', risk_score: null, created_at: '2025-02-14T13:00:00' },
-    { id: 3, event_type: 'alert', title: '🚨 High Sugar Alert', description: 'Fasting sugar 185 mg/dL – Needs attention', risk_score: 85, created_at: '2025-02-13T09:15:00' },
-    { id: 4, event_type: 'vitals', title: 'Health Risk Assessment', description: 'Diabetes: 45% | Heart: 32%', risk_score: 38, created_at: '2025-02-12T14:00:00' },
-    { id: 5, event_type: 'report', title: 'Thyroid Panel', description: 'TSH slightly elevated at 5.8', risk_score: 35, created_at: '2025-02-10T11:00:00' },
-    { id: 6, event_type: 'scan', title: 'Breakfast Scanned', description: 'Idli + Sambar – 200 kcal, Healthy!', risk_score: null, created_at: '2025-02-09T08:30:00' },
-    { id: 7, event_type: 'report', title: 'Annual Health Checkup', description: 'All major values in normal range', risk_score: 12, created_at: '2025-02-05T10:00:00' },
-    { id: 8, event_type: 'vitals', title: 'BP & Sugar Check', description: 'BP: 128/82, Sugar: 105 mg/dL', risk_score: 25, created_at: '2025-02-01T09:00:00' },
-]
-
 const iconMap = { report: FileText, scan: Camera, alert: AlertTriangle, vitals: Activity }
 const colorMap = { report: '#06b6d4', scan: '#10b981', alert: '#ef4444', vitals: '#8b5cf6' }
 
 export default function HealthMemory() {
-    const [timeline, setTimeline] = useState(sampleTimeline)
+    const [timeline, setTimeline] = useState([])
+    const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('all')
+
+    useEffect(() => {
+        const fetchTimeline = async () => {
+            try {
+                const res = await fetch('/api/dashboard/timeline')
+                if (res.ok) {
+                    const data = await res.json()
+                    setTimeline(data)
+                }
+            } catch (error) {
+                console.error("Failed to fetch timeline:", error)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchTimeline()
+    }, [])
 
     const filtered = filter === 'all' ? timeline : timeline.filter(t => t.event_type === filter)
 
@@ -25,7 +32,9 @@ export default function HealthMemory() {
         reports: timeline.filter(t => t.event_type === 'report').length,
         scans: timeline.filter(t => t.event_type === 'scan').length,
         alerts: timeline.filter(t => t.event_type === 'alert').length,
-        avgRisk: Math.round(timeline.filter(t => t.risk_score).reduce((a, b) => a + b.risk_score, 0) / timeline.filter(t => t.risk_score).length)
+        avgRisk: timeline.filter(t => t.risk_score).length > 0
+            ? Math.round(timeline.filter(t => t.risk_score).reduce((a, b) => a + b.risk_score, 0) / timeline.filter(t => t.risk_score).length)
+            : 0
     }
 
     return (
@@ -62,34 +71,46 @@ export default function HealthMemory() {
             {/* Timeline */}
             <div className="glass-card animate-in">
                 <div className="timeline">
-                    {filtered.map((item) => {
-                        const Icon = iconMap[item.event_type] || Clock
-                        const color = colorMap[item.event_type] || '#06b6d4'
-                        const severity = item.event_type === 'alert' ? 'critical' : item.risk_score > 60 ? 'warning' : ''
-                        return (
-                            <div key={item.id} className={`timeline-item ${severity}`}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                    <div>
-                                        <div className="tl-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Icon size={14} color={color} />
-                                            {item.title}
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                            <span className="spinner" /> Loading health memory...
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+                            <Clock size={48} style={{ opacity: 0.2, marginBottom: 16 }} />
+                            <p>No health events found.</p>
+                            <p style={{ fontSize: 13, marginTop: 4 }}>Reports and scans will appear here once processed.</p>
+                        </div>
+                    ) : (
+                        filtered.map((item) => {
+                            const Icon = iconMap[item.event_type] || Clock
+                            const color = colorMap[item.event_type] || '#06b6d4'
+                            const severity = item.event_type === 'alert' ? 'critical' : item.risk_score > 60 ? 'warning' : ''
+                            return (
+                                <div key={item.id} className={`timeline-item ${severity}`}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                        <div>
+                                            <div className="tl-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <Icon size={14} color={color} />
+                                                {item.title}
+                                            </div>
+                                            <div className="tl-desc">{item.description}</div>
+                                            <div className="tl-date">{new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                                         </div>
-                                        <div className="tl-desc">{item.description}</div>
-                                        <div className="tl-date">{new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                        {item.risk_score != null && (
+                                            <div style={{
+                                                padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                                                background: item.risk_score > 60 ? 'rgba(239,68,68,0.15)' : item.risk_score > 30 ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)',
+                                                color: item.risk_score > 60 ? '#ef4444' : item.risk_score > 30 ? '#f59e0b' : '#10b981'
+                                            }}>
+                                                {item.risk_score}%
+                                            </div>
+                                        )}
                                     </div>
-                                    {item.risk_score != null && (
-                                        <div style={{
-                                            padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                                            background: item.risk_score > 60 ? 'rgba(239,68,68,0.15)' : item.risk_score > 30 ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)',
-                                            color: item.risk_score > 60 ? '#ef4444' : item.risk_score > 30 ? '#f59e0b' : '#10b981'
-                                        }}>
-                                            {item.risk_score}%
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        )
-                    })}
+                            )
+                        })
+                    )}
                 </div>
             </div>
         </div>

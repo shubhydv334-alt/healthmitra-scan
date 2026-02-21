@@ -1,13 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Camera, Mic, Activity, Users, Clock, AlertTriangle, TrendingUp, Heart, Stethoscope } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-const stats = [
-    { icon: '📄', label: 'Reports Analyzed', value: '24', color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' },
-    { icon: '🍛', label: 'Foods Scanned', value: '48', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-    { icon: '🎤', label: 'Voice Sessions', value: '15', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
-    { icon: '👥', label: 'Patients (Rural)', value: '8', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-]
 
 const quickActions = [
     { icon: FileText, label: 'Scan Report', path: '/report', color: '#06b6d4' },
@@ -18,16 +11,61 @@ const quickActions = [
     { icon: Clock, label: 'Health Timeline', path: '/memory', color: '#3b82f6' },
 ]
 
-const recentActivity = [
-    { type: 'report', title: 'Blood Test Report Analyzed', desc: 'Risk Score: 45% (Moderate)', time: '2 hours ago', severity: 'warning' },
-    { type: 'scan', title: 'Lunch Meal Scanned', desc: 'Dal Rice + Roti – 470 kcal', time: '5 hours ago', severity: '' },
-    { type: 'alert', title: 'High Sugar Alert', desc: 'Fasting sugar 185 mg/dL detected', time: '1 day ago', severity: 'critical' },
-    { type: 'voice', title: 'Voice Consultation', desc: 'Query about knee pain remedies', time: '1 day ago', severity: '' },
-    { type: 'report', title: 'Thyroid Panel Report', desc: 'Risk Score: 22% (Low)', time: '3 days ago', severity: '' },
-]
-
 export default function Dashboard() {
     const navigate = useNavigate()
+    const [stats, setStats] = useState([
+        { icon: '📄', label: 'Reports Analyzed', value: '0', color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' },
+        { icon: '🍛', label: 'Foods Scanned', value: '0', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+        { icon: '🎤', label: 'Voice Sessions', value: '0', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+        { icon: '👥', label: 'Patients (Rural)', value: '0', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    ])
+    const [activities, setActivities] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const [statsRes, activityRes] = await Promise.all([
+                    fetch('/api/dashboard/stats'),
+                    fetch('/api/dashboard/activity')
+                ])
+
+                if (statsRes.ok) {
+                    const data = await statsRes.json()
+                    setStats(prev => [
+                        { ...prev[0], value: data.reports.toString() },
+                        { ...prev[1], value: data.food_scans.toString() },
+                        { ...prev[2], value: data.voice_sessions.toString() },
+                        { ...prev[3], value: data.patients.toString() },
+                    ])
+                }
+
+                if (activityRes.ok) {
+                    const data = await activityRes.json()
+                    setActivities(data)
+                }
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchDashboardData()
+    }, [])
+
+    const formatTime = (isoString) => {
+        if (!isoString) return ''
+        const date = new Date(isoString)
+        const now = new Date()
+        const diffInMs = now - date
+        const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+        const diffInDays = Math.floor(diffInHours / 24)
+
+        if (diffInHours < 1) return 'Just now'
+        if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+        return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+    }
 
     return (
         <div>
@@ -56,7 +94,7 @@ export default function Dashboard() {
                         <div className="stat-icon" style={{ background: s.bg }}>
                             <span style={{ fontSize: 20 }}>{s.icon}</span>
                         </div>
-                        <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
+                        <div className="stat-value" style={{ color: s.color }}>{loading ? '...' : s.value}</div>
                         <div className="stat-label">{s.label}</div>
                     </div>
                 ))}
@@ -100,13 +138,22 @@ export default function Dashboard() {
                     <Clock size={18} /> Recent Activity
                 </h3>
                 <div className="timeline">
-                    {recentActivity.map((a, i) => (
-                        <div key={i} className={`timeline-item ${a.severity}`}>
-                            <div className="tl-title">{a.title}</div>
-                            <div className="tl-desc">{a.desc}</div>
-                            <div className="tl-date">{a.time}</div>
+                    {loading ? (
+                        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading activity...</div>
+                    ) : activities.length === 0 ? (
+                        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: 24, marginBottom: 8 }}>🌱</div>
+                            <p>No activity yet. Start by scanning a report or food item.</p>
                         </div>
-                    ))}
+                    ) : (
+                        activities.map((a, i) => (
+                            <div key={i} className={`timeline-item ${a.risk_score >= 60 ? 'critical' : a.risk_score >= 30 ? 'warning' : ''}`}>
+                                <div className="tl-title">{a.title}</div>
+                                <div className="tl-desc">{a.desc}</div>
+                                <div className="tl-date">{formatTime(a.created_at)}</div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

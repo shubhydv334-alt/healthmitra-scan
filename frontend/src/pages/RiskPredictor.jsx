@@ -3,18 +3,30 @@ import { Activity, Heart, Droplets, AlertTriangle } from 'lucide-react'
 
 export default function RiskPredictor() {
     const [vitals, setVitals] = useState({
-        age: 45, gender: 'male', bmi: 27,
-        blood_pressure_systolic: 135, blood_pressure_diastolic: 88,
-        blood_sugar_fasting: 115, cholesterol_total: 220,
-        heart_rate: 78, smoking: false,
+        age: 0, gender: 'male', height: 0, weight: 0, bmi: 0,
+        blood_pressure_systolic: 0, blood_pressure_diastolic: 0,
+        blood_sugar_fasting: 0, cholesterol_total: 0,
+        heart_rate: 0, smoking: false,
         family_history_diabetes: false, family_history_heart: false,
-        exercise_minutes_weekly: 60
+        exercise_minutes_weekly: 0
     })
     const [result, setResult] = useState(null)
     const [loading, setLoading] = useState(false)
 
     const handleChange = (field, value) => {
-        setVitals(prev => ({ ...prev, [field]: value }))
+        setVitals(prev => {
+            const next = { ...prev, [field]: value }
+            // Auto-calculate BMI if height or weight changes
+            if (field === 'height' || field === 'weight') {
+                const h = field === 'height' ? value : prev.height
+                const w = field === 'weight' ? value : prev.weight
+                if (h > 0 && w > 0) {
+                    const heightInMeters = h / 100
+                    next.bmi = parseFloat((w / (heightInMeters * heightInMeters)).toFixed(1))
+                }
+            }
+            return next
+        })
     }
 
     const handlePredict = async () => {
@@ -84,9 +96,19 @@ export default function RiskPredictor() {
                                 </select>
                             </div>
                         </div>
+                        <div className="grid-2" style={{ gap: 12 }}>
+                            <div className="form-group">
+                                <label className="form-label">Height (cm)</label>
+                                <input type="number" className="form-input" value={vitals.height} onChange={e => handleChange('height', +e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Weight (kg)</label>
+                                <input type="number" className="form-input" value={vitals.weight} onChange={e => handleChange('weight', +e.target.value)} />
+                            </div>
+                        </div>
                         <div className="form-group">
-                            <label className="form-label">BMI (Body Mass Index)</label>
-                            <input type="number" step="0.1" className="form-input" value={vitals.bmi} onChange={e => handleChange('bmi', +e.target.value)} />
+                            <label className="form-label">BMI (Auto-calculated)</label>
+                            <input type="number" step="0.1" className="form-input" value={vitals.bmi} readOnly style={{ background: 'rgba(255,255,255,0.05)', cursor: 'not-allowed' }} />
                         </div>
                         <div className="grid-2" style={{ gap: 12 }}>
                             <div className="form-group">

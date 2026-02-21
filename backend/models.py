@@ -56,6 +56,8 @@ class MedicalReport(Base):
     risk_score = Column(Float, default=0.0)
     risk_level = Column(String(20))
     critical_alerts = Column(Text)
+    structured_data = Column(Text)  # JSON: Full ClinicalReport output
+    remedies = Column(Text)  # JSON: List of strings
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="reports")

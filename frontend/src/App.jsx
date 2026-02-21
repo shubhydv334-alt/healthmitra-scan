@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import {
@@ -58,6 +59,17 @@ function ProtectedRoute({ children }) {
 export default function App() {
     const location = useLocation()
     const { user, logout } = useAuth()
+    const [isOffline, setIsOffline] = useState(() => {
+        const saved = localStorage.getItem('app_mode')
+        return saved === null ? true : saved === 'offline'
+    })
+
+    useEffect(() => {
+        localStorage.setItem('app_mode', isOffline ? 'offline' : 'online')
+    }, [isOffline])
+
+    const toggleMode = () => setIsOffline(!isOffline)
+
     const currentTitle = pageTitles[location.pathname] || 'HealthMitra Scan'
 
     // Auth pages – no sidebar / header
@@ -125,11 +137,16 @@ export default function App() {
                             </div>
                         </NavLink>
                     )}
-                    <div className="offline-badge" style={{ marginTop: 8 }}>
+                    <button
+                        className={`status-badge ${isOffline ? 'offline' : 'online'}`}
+                        style={{ marginTop: 8, width: '100%' }}
+                        onClick={toggleMode}
+                        title={`Switch to ${isOffline ? 'Online' : 'Offline'} Mode`}
+                    >
                         <span className="dot"></span>
-                        <Wifi size={14} />
-                        Offline Mode Active
-                    </div>
+                        {isOffline ? <Wifi size={14} /> : <Wifi size={14} style={{ opacity: 0.7 }} />}
+                        {isOffline ? 'Offline Mode Active' : 'Online Mode Active'}
+                    </button>
                 </div>
             </aside>
 
@@ -141,10 +158,14 @@ export default function App() {
                         <Cpu size={14} />
                         AMD Ryzen AI
                     </div>
-                    <div className="header-chip">
-                        <span className="dot" style={{ width: 6, height: 6, background: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
-                        Offline
-                    </div>
+                    <button
+                        className={`header-chip status-btn ${isOffline ? 'offline' : 'online'}`}
+                        onClick={toggleMode}
+                        title={`Switch to ${isOffline ? 'Online' : 'Offline'} Mode`}
+                    >
+                        <span className="dot"></span>
+                        {isOffline ? 'Offline' : 'Online'}
+                    </button>
                     {user && (
                         <NavLink to="/profile" className="header-avatar-btn" title="My Profile">
                             {user.profile_photo ? (
