@@ -38,35 +38,43 @@ async def upload_report(
 
         loop = asyncio.get_event_loop()
 
-        # OCR extraction (blocking → run in thread)
+        # Unified Clinical Pipeline (blocking → run in thread)
+        logger.info(f"Starting OCR/Extraction for {file.filename}...")
         ocr_result = await loop.run_in_executor(_pool, extract_text_from_file, file_path)
-        logger.info(f"OCR done: {len(ocr_result.get('ocr_text', ''))} chars, risk={ocr_result.get('risk_level')}")
+        logger.info(f"OCR/Extraction complete for {file.filename}. Status: {'error' if 'error' in ocr_result else 'success'}")
+        
+        if "error" in ocr_result:
+             raise HTTPException(status_code=422, detail=ocr_result["error"])
 
-        # LLM explanation in both languages (blocking → run in thread)
+        logger.info(f"Clinical Engine done. Risk={ocr_result.get('risk_level')}")
+
+        # LLM explanation based on structured data (blocking → run in thread)
+        logger.info(f"Starting LLM explanation (EN) for {file.filename}...")
         explanation_en = await loop.run_in_executor(
-            _pool, explain_report, ocr_result["ocr_text"], ocr_result["risk_level"], "en"
+            _pool, explain_report, ocr_result["report"], "en"
         )
+        logger.info(f"LLM explanation (EN) complete for {file.filename}")
+
+        logger.info(f"Starting LLM explanation (HI) for {file.filename}...")
         explanation_hi = await loop.run_in_executor(
-            _pool, explain_report, ocr_result["ocr_text"], ocr_result["risk_level"], "hi"
+            _pool, explain_report, ocr_result["report"], "hi"
         )
+        logger.info(f"LLM explanation (HI) complete for {file.filename}")
 
-        # Emergency check
-        emergency = await loop.run_in_executor(
-            _pool, check_emergency_from_text, ocr_result["ocr_text"]
-        )
-
-        # Save to database — use a FRESH session after the long blocking calls
+        # Save to database
         db = SessionLocal()
         try:
             report = MedicalReport(
-                patient_id=patient_id,
+                user_id=patient_id, # Mapping patient_id from form to user_id for simplicity or as allowed
                 filename=file.filename,
                 ocr_text=ocr_result["ocr_text"],
                 explanation_en=explanation_en,
                 explanation_hi=explanation_hi,
                 risk_score=ocr_result["risk_score"],
                 risk_level=ocr_result["risk_level"],
-                critical_alerts=json.dumps(emergency["alerts"]) if emergency["alerts"] else None
+                structured_data=json.dumps(ocr_result["report"]),
+                remedies=json.dumps(ocr_result["report"].get("remedies", [])),
+                critical_alerts=json.dumps(ocr_result["report"].get("red_flags", []))
             )
             db.add(report)
             db.commit()
@@ -74,10 +82,10 @@ async def upload_report(
 
             # Add to health timeline
             timeline_entry = HealthTimeline(
-                patient_id=patient_id,
+                user_id=patient_id,
                 event_type="report",
-                title=f"Medical Report: {file.filename}",
-                description=f"Risk Score: {ocr_result['risk_score']}% ({ocr_result['risk_level']})",
+                title=f"Medical Analysis: {file.filename}",
+                description=f"Confidence: {ocr_result['confidence']*100}% | Risk: {ocr_result['risk_level'].title()}",
                 risk_score=ocr_result["risk_score"],
                 data_json=json.dumps({"report_id": report.id})
             )
@@ -92,12 +100,12 @@ async def upload_report(
             "id": report_id,
             "filename": file.filename,
             "ocr_text": ocr_result["ocr_text"],
+            "report": ocr_result["report"],
             "explanation_en": explanation_en,
             "explanation_hi": explanation_hi,
             "risk_score": ocr_result["risk_score"],
             "risk_level": ocr_result["risk_level"],
-            "emergency": emergency,
-            "ocr_confidence": ocr_result["confidence"]
+            "confidence": ocr_result["confidence"]
         }
 
     except Exception as e:

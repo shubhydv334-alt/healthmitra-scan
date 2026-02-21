@@ -4,13 +4,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Try to import ollama SDK
+# Try to import requests
 try:
-    import ollama
-    OLLAMA_AVAILABLE = True
+    import requests
+    REQUESTS_AVAILABLE = True
 except ImportError:
-    OLLAMA_AVAILABLE = False
-    logger.warning("ollama package not installed. Using fallback responses.")
+    REQUESTS_AVAILABLE = False
+    logger.warning("requests package not installed. Using fallback responses.")
 
 
 # ── Fallback responses when Ollama is not available ─────────────────
@@ -61,11 +61,11 @@ FALLBACK_QA = {
 # ── Ollama LLM calls ────────────────────────────────────────────────
 def _check_ollama_running() -> bool:
     """Check if Ollama server is running and accessible."""
-    if not OLLAMA_AVAILABLE:
+    if not REQUESTS_AVAILABLE:
         return False
     try:
-        ollama.list()
-        return True
+        resp = requests.get("http://localhost:11434/api/tags", timeout=2.0)
+        return resp.status_code == 200
     except Exception:
         return False
 
@@ -73,51 +73,66 @@ def _check_ollama_running() -> bool:
 def _get_available_model() -> str | None:
     """Get the first available model from Ollama."""
     try:
-        models = ollama.list()
-        if models and hasattr(models, 'models') and len(models.models) > 0:
-            return models.models[0].model
+        resp = requests.get("http://localhost:11434/api/tags", timeout=2.0)
+        data = resp.json()
+        models = data.get('models', [])
+        if models and len(models) > 0:
+            return models[0].get('name') or models[0].get('model')
         return None
     except Exception:
         return None
 
 
-def explain_report(ocr_text: str, risk_level: str = "moderate", language: str = "en") -> str:
+def explain_report(report_data: dict, language: str = "en") -> str:
     """
-    Explain a medical report in simple language.
-    Uses Ollama if available, falls back to pre-built responses.
+    Explain structured clinical report results in simple language.
+    LLM used ONLY for explanation, NEVER for classification.
     """
     if _check_ollama_running():
         model = _get_available_model()
         if model:
             try:
+                lang_name = "English" if language == "en" else "Hindi"
                 lang_instruction = "in simple English" if language == "en" else "in simple Hindi (Devanagari script)"
 
-                prompt = f"""You are HealthMitra, a caring and knowledgeable AI health assistant for Indian patients.
-Analyze this medical report and explain it {lang_instruction} that a common person can understand.
+                # Masked structured data for LLM
+                masked_data = {
+                    "red_flags": report_data.get("red_flags", []),
+                    "borderline": report_data.get("borderline", []),
+                    "risk_scores": report_data.get("risk_scores", {}),
+                    "incomplete": report_data.get("incomplete", [])
+                }
 
-Instructions:
-- Identify abnormal values and explain what they mean
-- Use simple, non-technical language
-- Mention which values are concerning and which are normal
-- Give a brief health recommendation
-- Use relevant emojis for visual clarity
-- Keep the response concise (200-300 words)
+                prompt = f"""You are HealthMitra, a medical explainer.
+Briefly explain these clinical findings {lang_instruction}:
+{json.dumps(masked_data, indent=1)}
 
-Medical Report:
-{ocr_text}
+Rules:
+- 2-3 sentences max.
+- Simple terms. No jargon.
+- Use {lang_name}.
+- End with: "Disclaimer: AI info only, consult a doctor."
+"""
 
-Provide your explanation:"""
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {"temperature": 0.3}
+                }
 
-                response = ollama.chat(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    options={"temperature": 0.7, "num_predict": 500}
+                resp = requests.post(
+                    "http://localhost:11434/api/chat",
+                    json=payload,
+                    timeout=15.0 # Strict 15s timeout
                 )
-                return response["message"]["content"]
+                if resp.status_code == 200:
+                    return resp.json()["message"]["content"]
             except Exception as e:
                 logger.error(f"Ollama error: {e}")
 
-    # Fallback
+    # Fallback logic based on high-level risk
+    risk_level = report_data.get("risk_scores", {}).get("cardiovascular", {}).get("level", "low").lower()
     return FALLBACK_EXPLANATIONS.get(language, FALLBACK_EXPLANATIONS["en"]).get(
         risk_level, FALLBACK_EXPLANATIONS["en"]["moderate"]
     )

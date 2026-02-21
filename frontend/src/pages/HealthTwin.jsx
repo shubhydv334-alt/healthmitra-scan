@@ -1,32 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserCircle, Heart, Droplets, Activity, TrendingUp, Shield, Brain } from 'lucide-react'
 
 export default function HealthTwin() {
-    const [profile] = useState({
-        name: 'Ramesh Kumar',
-        age: 45,
-        gender: 'Male',
-        blood_group: 'B+',
-        height: '170 cm',
-        weight: '78 kg',
-        bmi: 27,
-        conditions: ['Pre-Diabetic', 'Mild Hypertension', 'Vitamin D Deficiency'],
-        metrics: {
-            blood_sugar: { current: 115, trend: 'rising', history: [95, 102, 108, 115] },
-            blood_pressure: { current: '135/88', trend: 'stable', history: [128, 130, 133, 135] },
-            cholesterol: { current: 220, trend: 'falling', history: [250, 240, 230, 220] },
-            hemoglobin: { current: 13.5, trend: 'stable', history: [13.2, 13.4, 13.3, 13.5] },
-            heart_rate: { current: 78, trend: 'stable', history: [80, 76, 82, 78] },
-            bmi: { current: 27, trend: 'falling', history: [29, 28.5, 27.5, 27] },
-        },
-        overall_health: 62,
-        ai_insights: [
-            { type: 'warning', text: 'Blood sugar trending upward last 3 months – consider dietary changes' },
-            { type: 'positive', text: 'Cholesterol improving with current medication and diet' },
-            { type: 'info', text: 'BMI gradual improvement noted – continue exercise routine' },
-            { type: 'warning', text: 'Vitamin D remains low – increase sun exposure or supplements' },
-        ]
-    })
+    const [profile, setProfile] = useState(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchHealthTwin = async () => {
+            try {
+                const res = await fetch('/api/health_twin/')
+                if (res.ok) {
+                    const data = await res.json()
+                    setProfile(data)
+                }
+            } catch (error) {
+                console.error("Failed to fetch health twin data:", error)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchHealthTwin()
+    }, [])
 
     const trendIcon = (trend) => trend === 'rising' ? '📈' : trend === 'falling' ? '📉' : '➡️'
     const trendColor = (trend, goodDirection) => {
@@ -36,6 +30,17 @@ export default function HealthTwin() {
     }
 
     const circumference = 2 * Math.PI * 65
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-muted)' }}>
+                <Brain size={48} className="animate-pulse" />
+                <span style={{ marginLeft: 16, fontSize: 18 }}>Generating AI Health Twin...</span>
+            </div>
+        )
+    }
+
+    if (!profile) return <div>Failed to load profile.</div>
 
     return (
         <div>
@@ -53,7 +58,7 @@ export default function HealthTwin() {
                         </div>
                         <h3 style={{ fontSize: 18, fontWeight: 700 }}>{profile.name}</h3>
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                            {profile.age} yrs • {profile.gender} • {profile.blood_group}
+                            {profile.age > 0 ? `${profile.age} yrs • ` : ''}{profile.gender} • {profile.blood_group}
                         </p>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
                             <span>📏 {profile.height}</span>
@@ -83,11 +88,15 @@ export default function HealthTwin() {
                     {/* Conditions */}
                     <div className="glass-card animate-in" style={{ marginTop: 16 }}>
                         <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🏷️ Active Conditions</h4>
-                        {profile.conditions.map((c, i) => (
-                            <div key={i} style={{ padding: '6px 12px', background: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 6, fontSize: 13, color: '#f59e0b' }}>
-                                ⚠️ {c}
-                            </div>
-                        ))}
+                        {profile.conditions.length === 0 ? (
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>No known conditions.</div>
+                        ) : (
+                            profile.conditions.map((c, i) => (
+                                <div key={i} style={{ padding: '6px 12px', background: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 6, fontSize: 13, color: '#f59e0b' }}>
+                                    ⚠️ {c}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
 
@@ -99,28 +108,41 @@ export default function HealthTwin() {
                             const labels = { blood_sugar: '🩸 Blood Sugar', blood_pressure: '💊 Blood Pressure', cholesterol: '🧈 Cholesterol', hemoglobin: '🔬 Hemoglobin', heart_rate: '💓 Heart Rate', bmi: '⚖️ BMI' }
                             const units = { blood_sugar: 'mg/dL', blood_pressure: 'mmHg', cholesterol: 'mg/dL', hemoglobin: 'g/dL', heart_rate: 'bpm', bmi: '' }
                             const goodDir = { blood_sugar: 'falling', cholesterol: 'falling', bmi: 'falling', blood_pressure: 'falling', heart_rate: 'stable', hemoglobin: 'stable' }
+
+                            // Check if metric has data
+                            const hasData = val.history && val.history.length > 0;
+
                             return (
                                 <div key={key} className="glass-card" style={{ padding: 16 }}>
                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{labels[key]}</div>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                                        <span style={{ fontSize: 24, fontWeight: 700 }}>{val.current}</span>
-                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{units[key]}</span>
+                                        <span style={{ fontSize: 24, fontWeight: 700 }}>{hasData ? val.current : '--'}</span>
+                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{hasData ? units[key] : ''}</span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: trendColor(val.trend, goodDir[key]) }}>
-                                        {trendIcon(val.trend)} {val.trend}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: hasData ? trendColor(val.trend, goodDir[key]) : 'var(--text-muted)' }}>
+                                        {hasData ? trendIcon(val.trend) : ''} {hasData ? val.trend : 'No data'}
                                     </div>
                                     {/* Mini sparkline */}
                                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, marginTop: 12, height: 30 }}>
-                                        {val.history.map((v, i) => {
-                                            const max = Math.max(...val.history)
-                                            const height = (v / max) * 30
-                                            return (
-                                                <div key={i} style={{
-                                                    flex: 1, height, borderRadius: 2, transition: 'height 0.5s ease',
-                                                    background: i === val.history.length - 1 ? 'var(--accent-teal)' : 'rgba(255,255,255,0.1)'
-                                                }} />
-                                            )
-                                        })}
+                                        {!hasData ? (
+                                            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }}></div>
+                                        ) : (
+                                            val.history.map((v, i) => {
+                                                // Handle numeric values for sparkline
+                                                let numericVal = v;
+                                                if (key === 'blood_pressure' && typeof v === 'string') {
+                                                    numericVal = parseInt(v.split('/')[0]);
+                                                }
+                                                const max = Math.max(...val.history.map(h => typeof h === 'string' ? parseInt(h.split('/')[0]) : h))
+                                                const height = max > 0 ? (numericVal / max) * 30 : 2
+                                                return (
+                                                    <div key={i} style={{
+                                                        flex: 1, height, borderRadius: 2, transition: 'height 0.5s ease',
+                                                        background: i === val.history.length - 1 ? 'var(--accent-teal)' : 'rgba(255,255,255,0.1)'
+                                                    }} />
+                                                )
+                                            })
+                                        )}
                                     </div>
                                 </div>
                             )
@@ -132,19 +154,23 @@ export default function HealthTwin() {
                         <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Brain size={18} color="var(--accent-purple)" /> AI Insights & Monitoring
                         </h3>
-                        {profile.ai_insights.map((insight, i) => {
-                            const colors = { warning: '#f59e0b', positive: '#10b981', info: '#06b6d4' }
-                            const icons = { warning: '⚠️', positive: '✅', info: 'ℹ️' }
-                            return (
-                                <div key={i} style={{
-                                    padding: '12px 16px', borderRadius: 10, marginBottom: 8,
-                                    background: `${colors[insight.type]}10`, borderLeft: `3px solid ${colors[insight.type]}`,
-                                    fontSize: 14, color: 'var(--text-secondary)'
-                                }}>
-                                    {icons[insight.type]} {insight.text}
-                                </div>
-                            )
-                        })}
+                        {profile.ai_insights.length === 0 ? (
+                            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No insights available yet.</div>
+                        ) : (
+                            profile.ai_insights.map((insight, i) => {
+                                const colors = { warning: '#f59e0b', positive: '#10b981', info: '#06b6d4' }
+                                const icons = { warning: '⚠️', positive: '✅', info: 'ℹ️' }
+                                return (
+                                    <div key={i} style={{
+                                        padding: '12px 16px', borderRadius: 10, marginBottom: 8,
+                                        background: `${colors[insight.type]}10`, borderLeft: `3px solid ${colors[insight.type]}`,
+                                        fontSize: 14, color: 'var(--text-secondary)'
+                                    }}>
+                                        {icons[insight.type]} {insight.text}
+                                    </div>
+                                )
+                            })
+                        )}
                     </div>
                 </div>
             </div>

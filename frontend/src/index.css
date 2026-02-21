@@ -240,28 +240,93 @@ select {
   border-top: 1px solid var(--border-glass);
 }
 
-.offline-badge {
+.status-badge {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: var(--accent-green);
+  font-size: 11px;
   font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  outline: none;
 }
 
-.offline-badge .dot {
-  width: 8px;
-  height: 8px;
+.status-badge:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.status-badge.offline {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: var(--accent-green);
+}
+
+.status-badge.offline:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.status-badge.online {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.2);
+  color: var(--accent-teal);
+}
+
+.status-badge.online:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.status-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.status-badge.offline .dot {
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green-glow);
+  animation: pulse-dot-green 2s ease-in-out infinite;
+}
+
+.status-badge.online .dot {
+  background: var(--accent-teal);
+  box-shadow: 0 0 8px var(--accent-teal-glow);
+  animation: pulse-dot-teal 2s ease-in-out infinite;
+}
+
+.status-btn {
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.status-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.status-btn.offline .dot {
+  width: 6px;
+  height: 6px;
   background: var(--accent-green);
   border-radius: 50%;
-  animation: pulse-dot 2s ease-in-out infinite;
+  margin-right: 4px;
 }
 
-@keyframes pulse-dot {
+.status-btn.online .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-teal);
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+@keyframes pulse-dot-green {
 
   0%,
   100% {
@@ -272,6 +337,20 @@ select {
   50% {
     opacity: 0.5;
     transform: scale(0.8);
+  }
+}
+
+@keyframes pulse-dot-teal {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
   }
 }
 
@@ -399,6 +478,182 @@ select {
 .btn-danger {
   background: var(--gradient-danger);
   color: white;
+}
+
+/* ── Clinical Engine UI ──────────────────────────────── */
+.clinical-engine .results-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.category-section {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+}
+
+.category-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.2s;
+}
+
+.category-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.category-header h4 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.category-content {
+  padding: 8px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.parameter-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr;
+  align-items: center;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  transition: transform 0.2s;
+}
+
+.parameter-row:hover {
+  transform: translateX(4px);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.param-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.param-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.param-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.param-value {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  padding-right: 24px;
+}
+
+.param-value .val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.param-value .ref {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.param-status {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.status-normal {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+}
+
+.status-borderline {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-orange);
+}
+
+.status-high,
+.status-low {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.risk-badge {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.remedies-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.remedies-list li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.remedies-list li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--accent-teal);
+}
+
+.disclaimer-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.error-banner {
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--accent-red);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn-outline {
@@ -1409,4 +1664,33 @@ select {
   font-size: 12px;
   font-weight: 700;
   color: white;
+}
+
+/* Remember Me Styles */
+.auth-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-me input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-teal);
+}
+
+.remember-me span {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }

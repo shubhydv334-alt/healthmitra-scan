@@ -1,5 +1,8 @@
 import { useState, useRef } from 'react'
-import { Upload, FileText, AlertTriangle, CheckCircle, Languages, Activity } from 'lucide-react'
+import {
+    Upload, FileText, AlertTriangle, CheckCircle, Languages, Activity,
+    ChevronDown, ChevronUp, Info, ShieldCheck, HeartPulse, List
+} from 'lucide-react'
 
 export default function ReportExplainer() {
     const [file, setFile] = useState(null)
@@ -7,7 +10,17 @@ export default function ReportExplainer() {
     const [result, setResult] = useState(null)
     const [error, setError] = useState(null)
     const [language, setLanguage] = useState('en')
+    const [expandedSections, setExpandedSections] = useState({
+        red_flags: true,
+        borderline: true,
+        normal: false,
+        incomplete: true
+    })
     const fileRef = useRef()
+
+    const toggleSection = (section) => {
+        setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+    }
 
     const handleUpload = async () => {
         if (!file) return
@@ -16,50 +29,51 @@ export default function ReportExplainer() {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('language', language)
+        formData.append('patient_id', 1) // Default for demo
 
         try {
             const res = await fetch('/api/reports/upload', { method: 'POST', body: formData })
-            if (!res.ok) {
-                throw new Error(`Server error: ${res.status}`)
-            }
             const data = await res.json()
+            if (!res.ok) {
+                throw new Error(data.detail || `Server error: ${res.status}`)
+            }
             setResult(data)
         } catch (err) {
             console.error('Report upload failed:', err)
-            setError(`Upload failed: ${err.message}. Make sure the backend is running on port 8000.`)
-            // Demo fallback
-            setResult({
-                ocr_text: `PATHOLOGY REPORT\nPatient: Ramesh Kumar\n\nHemoglobin: 9.2 g/dL [LOW]\nFasting Sugar: 185 mg/dL [HIGH]\nHbA1c: 8.5% [HIGH]\nCholesterol: 280 mg/dL [HIGH]\nCreatinine: 1.8 mg/dL [HIGH]`,
-                explanation_en: "⚠️ This report shows several concerning values. Blood sugar (185 mg/dL) is significantly elevated indicating poorly controlled diabetes. HbA1c at 8.5% confirms this has been ongoing. Cholesterol at 280 mg/dL increases heart risk. Hemoglobin is low (9.2) suggesting anemia. Kidney marker (creatinine 1.8) is also above normal. Please consult your doctor immediately.",
-                explanation_hi: "⚠️ इस रिपोर्ट में कई चिंताजनक मान हैं। ब्लड शुगर (185 mg/dL) बहुत अधिक है जो डायबिटीज का संकेत है। HbA1c 8.5% से पता चलता है कि पिछले 3 महीने से शुगर कंट्रोल में नहीं है। कोलेस्ट्रॉल 280 mg/dL से हृदय रोग का खतरा है। हीमोग्लोबिन कम है (9.2) जो एनीमिया दर्शाता है। कृपया तुरंत डॉक्टर से मिलें।",
-                risk_score: 78,
-                risk_level: "high",
-                emergency: {
-                    is_emergency: false,
-                    alerts: [
-                        { parameter: "Fasting Blood Sugar", value: 185, severity: "warning", message_en: "⚠️ Blood sugar 185 mg/dL indicates poorly controlled diabetes." },
-                        { parameter: "Hemoglobin", value: 9.2, severity: "warning", message_en: "⚠️ Hemoglobin 9.2 g/dL is low. Moderate anemia detected." }
-                    ],
-                    severity: "warning"
-                }
-            })
+            setError(err.message || 'Processing failed. Please check the backend connection.')
         }
         setLoading(false)
     }
 
-    const getRiskColor = (score) => {
-        if (score >= 70) return '#ef4444'
-        if (score >= 40) return '#f59e0b'
-        return '#10b981'
+    const getSeverityColor = (severity) => {
+        if (severity >= 2) return '#ef4444' // Red Flag
+        if (severity === 1) return '#f59e0b' // Borderline
+        return '#10b981' // Normal
     }
+
+    const renderParameterCard = (param, i) => (
+        <div key={i} className="parameter-row" style={{ borderLeft: `4px solid ${getSeverityColor(param.severity)}` }}>
+            <div className="param-info">
+                <span className="param-name">{param.parameter}</span>
+                <span className="param-meta">{param.classification_used} Guideline</span>
+            </div>
+            <div className="param-value">
+                <span className="val">{param.value} {param.unit}</span>
+                <span className="ref">Target: {param.guideline_reference}</span>
+            </div>
+            <div className={`param-status status-${param.status.toLowerCase()}`}>
+                {param.status}
+            </div>
+        </div>
+    )
 
     const circumference = 2 * Math.PI * 65
 
     return (
-        <div>
+        <div className="clinical-engine">
             <div className="page-header">
-                <h2>📄 Medical Report Explainer</h2>
-                <p>Upload a medical report (PDF/Image) to get AI-powered explanation in Hindi & English</p>
+                <h2>🩺 Clinical Report Intelligence Engine</h2>
+                <p>Deterministic analysis following ADA, AHA, and WHO international medical guidelines.</p>
             </div>
 
             <div className="grid-2" style={{ marginBottom: 24 }}>
@@ -68,8 +82,6 @@ export default function ReportExplainer() {
                     <div
                         className={`upload-zone ${file ? 'has-file' : ''}`}
                         onClick={() => fileRef.current?.click()}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={e => { e.preventDefault(); setFile(e.dataTransfer.files[0]) }}
                     >
                         <input ref={fileRef} type="file" hidden accept=".pdf,.png,.jpg,.jpeg" onChange={e => setFile(e.target.files[0])} />
                         {file ? (
@@ -80,9 +92,9 @@ export default function ReportExplainer() {
                             </>
                         ) : (
                             <>
-                                <div className="upload-icon">📤</div>
-                                <h3>Drop your medical report here</h3>
-                                <p>Supports PDF, PNG, JPG – Max 10MB</p>
+                                <div className="upload-icon">🧬</div>
+                                <h3>Upload Clinical Lab Report</h3>
+                                <p>Supports PDF/Images – Deterministic Processing Only</p>
                             </>
                         )}
                     </div>
@@ -93,13 +105,13 @@ export default function ReportExplainer() {
                             <button className={`tab ${language === 'hi' ? 'active' : ''}`} onClick={() => setLanguage('hi')}>हिंदी</button>
                         </div>
                         <button className="btn btn-primary btn-lg" onClick={handleUpload} disabled={!file || loading}>
-                            {loading ? <><span className="spinner" style={{ width: 18, height: 18 }} /> Analyzing...</> : <><Upload size={18} /> Analyze Report</>}
+                            {loading ? <><span className="spinner" style={{ width: 18, height: 18 }} /> Validating...</> : <><ShieldCheck size={18} /> Analyze Report</>}
                         </button>
                     </div>
 
                     {error && (
-                        <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
-                            {error}
+                        <div className="error-banner" style={{ marginTop: 12 }}>
+                            <AlertTriangle size={14} /> {error}
                         </div>
                     )}
                 </div>
@@ -108,76 +120,143 @@ export default function ReportExplainer() {
                 <div className="glass-card animate-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     {result ? (
                         <>
-                            <div className="risk-gauge">
-                                <svg width="160" height="160" viewBox="0 0 160 160">
-                                    <circle cx="80" cy="80" r="65" className="gauge-bg" />
-                                    <circle
-                                        cx="80" cy="80" r="65"
-                                        className="gauge-fill"
-                                        stroke={getRiskColor(result.risk_score)}
-                                        strokeDasharray={circumference}
-                                        strokeDashoffset={circumference - (result.risk_score / 100) * circumference}
-                                    />
-                                </svg>
-                                <div className="gauge-value">
-                                    <div className="gauge-number" style={{ color: getRiskColor(result.risk_score) }}>{result.risk_score}%</div>
-                                    <div className="gauge-label">Risk Score</div>
+                            {result.report.risk_scores.cardiovascular.status === "Calculated" ? (
+                                <>
+                                    <div className="risk-gauge">
+                                        <svg width="160" height="160" viewBox="0 0 160 160">
+                                            <circle cx="80" cy="80" r="65" className="gauge-bg" />
+                                            <circle
+                                                cx="80" cy="80" r="65"
+                                                className="gauge-fill"
+                                                stroke={getSeverityColor(result.report.risk_scores.cardiovascular.score >= 60 ? 2 : 1)}
+                                                strokeDasharray={circumference}
+                                                strokeDashoffset={circumference - (result.report.risk_scores.cardiovascular.score / 100) * circumference}
+                                            />
+                                        </svg>
+                                        <div className="gauge-value">
+                                            <div className="gauge-number" style={{ color: getSeverityColor(result.report.risk_scores.cardiovascular.score >= 60 ? 2 : 1) }}>
+                                                {result.report.risk_scores.cardiovascular.score}%
+                                            </div>
+                                            <div className="gauge-label">Clinical Risk</div>
+                                        </div>
+                                    </div>
+                                    <div className="risk-badge" style={{ background: `${getSeverityColor(result.report.risk_scores.cardiovascular.score >= 60 ? 2 : 1)}20`, color: getSeverityColor(result.report.risk_scores.cardiovascular.score >= 60 ? 2 : 1) }}>
+                                        {result.report.risk_scores.cardiovascular.level} Cardiovascular Risk
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ textAlign: 'center', color: '#f59e0b' }}>
+                                    <AlertTriangle size={48} strokeWidth={1} style={{ marginBottom: 12 }} />
+                                    <h4>Insufficient Data</h4>
+                                    <p style={{ fontSize: 13, padding: '0 20px' }}>Risk score cannot be calculated because: {result.report.risk_scores.cardiovascular.missing.join(', ')}</p>
                                 </div>
-                            </div>
-                            <div style={{
-                                marginTop: 16, padding: '6px 20px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-                                background: `${getRiskColor(result.risk_score)}20`, color: getRiskColor(result.risk_score),
-                                textTransform: 'uppercase', letterSpacing: 1
-                            }}>
-                                {result.risk_level} Risk
-                            </div>
+                            )}
                         </>
                     ) : (
                         <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                            <Activity size={48} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
-                            <p style={{ fontSize: 14 }}>Upload a report to see the health risk score</p>
+                            <HeartPulse size={48} strokeWidth={1} style={{ marginBottom: 12, opacity: 0.3 }} />
+                            <p style={{ fontSize: 14 }}>Waiting for clinical data upload...</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Results */}
+            {/* Structured Results */}
             {result && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Emergency Alerts */}
-                    {result.emergency?.alerts?.length > 0 && (
-                        <div className="emergency-banner animate-in">
-                            <h3><AlertTriangle size={18} /> Emergency Alerts ({result.emergency.alerts.length})</h3>
-                            {result.emergency.alerts.map((alert, i) => (
-                                <div key={i} className="emergency-item">
-                                    <div className="param">{alert.parameter}: {alert.value} {alert.unit}</div>
-                                    <div className="msg">{alert.message_en}</div>
+                <div className="results-container animate-in">
+                    {/* Red Flags */}
+                    {result.report.red_flags.length > 0 && (
+                        <div className="category-section red-flags">
+                            <div className="category-header" onClick={() => toggleSection('red_flags')}>
+                                <h4>🔴 RED FLAG MARKERS ({result.report.red_flags.length})</h4>
+                                {expandedSections.red_flags ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </div>
+                            {expandedSections.red_flags && (
+                                <div className="category-content">
+                                    {result.report.red_flags.map((p, i) => renderParameterCard(p, i))}
                                 </div>
-                            ))}
+                            )}
                         </div>
                     )}
 
-                    {/* OCR Text */}
-                    <div className="glass-card animate-in">
-                        <div className="result-panel" style={{ marginTop: 0 }}>
-                            <h4><FileText size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Extracted Report Text (OCR)</h4>
-                            <pre>{result.ocr_text}</pre>
+                    {/* Borderline */}
+                    {result.report.borderline.length > 0 && (
+                        <div className="category-section borderline">
+                            <div className="category-header" onClick={() => toggleSection('borderline')}>
+                                <h4>🟡 BORDERLINE VALUES ({result.report.borderline.length})</h4>
+                                {expandedSections.borderline ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </div>
+                            {expandedSections.borderline && (
+                                <div className="category-content">
+                                    {result.report.borderline.map((p, i) => renderParameterCard(p, i))}
+                                </div>
+                            )}
                         </div>
+                    )}
+
+                    {/* Incomplete */}
+                    {result.report.incomplete.length > 0 && (
+                        <div className="category-section incomplete">
+                            <div className="category-header" onClick={() => toggleSection('incomplete')}>
+                                <h4>⚠ INCOMPLETE DATA ({result.report.incomplete.length})</h4>
+                                {expandedSections.incomplete ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </div>
+                            {expandedSections.incomplete && (
+                                <div className="category-content">
+                                    {result.report.incomplete.map((p, i) => (
+                                        <div key={i} className="parameter-row" style={{ borderLeft: `4px solid #94a3b8`, background: '#f8fafc' }}>
+                                            <div className="param-info">
+                                                <span className="param-name">{p.parameter}</span>
+                                                <span className="param-meta">Parsing incomplete for this marker</span>
+                                            </div>
+                                            <div className="param-value" style={{ color: '#64748b' }}>
+                                                Value Missing
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Normal */}
+                    <div className="category-section normal">
+                        <div className="category-header" onClick={() => toggleSection('normal')}>
+                            <h4>🟢 NORMAL PARAMETERS ({result.report.normal.length})</h4>
+                            {expandedSections.normal ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                        {expandedSections.normal && (
+                            <div className="category-content">
+                                {result.report.normal.length > 0 ? (
+                                    result.report.normal.map((p, i) => renderParameterCard(p, i))
+                                ) : (
+                                    <p style={{ padding: 12, fontSize: 13, color: 'var(--text-muted)' }}>No normal parameters identified or report is all abnormal.</p>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Explanation */}
-                    <div className="grid-2">
-                        <div className="glass-card animate-in">
-                            <h4 style={{ fontSize: 14, color: 'var(--accent-teal)', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Languages size={16} /> English Explanation
-                            </h4>
-                            <div className="explanation-text">{result.explanation_en}</div>
+                    {/* Remedies & Explanation */}
+                    <div className="grid-2" style={{ marginTop: 16 }}>
+                        {/* Safe Lifestyle Remedies */}
+                        <div className="glass-card">
+                            <h4 className="section-title"><List size={16} /> Safe Lifestyle Remedies</h4>
+                            <ul className="remedies-list">
+                                {result.report.remedies.map((remedy, i) => (
+                                    <li key={i}>{remedy}</li>
+                                ))}
+                            </ul>
+                            <p className="disclaimer-note">
+                                <Info size={12} /> These are lifestyle-based suggestions only. For diagnosis, consult a doctor.
+                            </p>
                         </div>
-                        <div className="glass-card animate-in">
-                            <h4 style={{ fontSize: 14, color: 'var(--accent-purple)', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Languages size={16} /> हिंदी में समझाइए
-                            </h4>
-                            <div className="explanation-text">{result.explanation_hi}</div>
+
+                        {/* AI Explanation */}
+                        <div className="glass-card">
+                            <h4 className="section-title"><Languages size={16} /> {language === 'en' ? 'Clinical Explanation' : 'नैदानिक विवरण'}</h4>
+                            <div className="explanation-text" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                                {language === 'en' ? result.explanation_en : result.explanation_hi}
+                            </div>
                         </div>
                     </div>
                 </div>

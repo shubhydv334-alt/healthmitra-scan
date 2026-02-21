@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react'
@@ -6,11 +6,19 @@ import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [rememberMe, setRememberMe] = useState(localStorage.getItem('hm_remember_me') === 'true')
     const [showPass, setShowPass] = useState(false)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const { login } = useAuth()
     const navigate = useNavigate()
+
+    useEffect(() => {
+        if (rememberMe) {
+            const savedEmail = localStorage.getItem('hm_remembered_email')
+            if (savedEmail) setEmail(savedEmail)
+        }
+    }, [])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -19,6 +27,16 @@ export default function Login() {
         setError('')
         try {
             await login(email, password)
+
+            // Persist email if rememberMe is checked
+            if (rememberMe) {
+                localStorage.setItem('hm_remembered_email', email)
+                localStorage.setItem('hm_remember_me', 'true')
+            } else {
+                localStorage.removeItem('hm_remembered_email')
+                localStorage.setItem('hm_remember_me', 'false')
+            }
+
             navigate('/')
         } catch (err) {
             setError(err.message)
@@ -65,6 +83,17 @@ export default function Login() {
                         <button type="button" className="auth-eye" onClick={() => setShowPass(!showPass)}>
                             {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
+                    </div>
+
+                    <div className="auth-options">
+                        <label className="remember-me">
+                            <input
+                                type="checkbox"
+                                checked={rememberMe}
+                                onChange={e => setRememberMe(e.target.checked)}
+                            />
+                            <span>Remember Me</span>
+                        </label>
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-lg auth-btn" disabled={loading}>

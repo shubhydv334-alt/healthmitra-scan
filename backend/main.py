@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from database import init_db
 from config import APP_NAME, APP_VERSION, CORS_ORIGINS, UPLOAD_DIR
 
-from routers import reports, food, voice, risk, patients, system
+from routers import reports, food, voice, risk, patients, system, dashboard, health_twin
 from routers import auth
 
 # Initialize FastAPI app
@@ -41,6 +41,8 @@ app.include_router(voice.router)
 app.include_router(risk.router)
 app.include_router(patients.router)
 app.include_router(system.router)
+app.include_router(dashboard.router)
+app.include_router(health_twin.router)
 
 
 @app.on_event("startup")
